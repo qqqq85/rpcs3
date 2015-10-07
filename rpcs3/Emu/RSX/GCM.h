@@ -903,7 +903,7 @@ enum Method
 namespace rsx
 {
 	template<typename ...T>
-	static std::array<u32, sizeof...(T) + 1> make_command(u32 start_register, T... values)
+	static auto make_command(u32 start_register, T... values) -> std::array<u32, sizeof...(values) + 1>
 	{
 		return{ (start_register << 2) | u32(sizeof...(values) << 18), u32(values)... };
 	}
