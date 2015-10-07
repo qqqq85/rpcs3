@@ -290,6 +290,7 @@ struct D3D12DLLManagement
 
 class D3D12GSRender : public GSRender
 {
+	rsx::surface_info m_surface;
 private:
 	/** D3D12 structures.
 	 * Note: they should be declared in reverse order of destruction
