@@ -905,7 +905,7 @@ namespace rsx
 	template<typename ...T>
 	static std::array<u32, sizeof...(T) + 1> make_command(u32 start_register, T... values)
 	{
-		return{ (start_register << 2) | (sizeof...(values) << 18), values... };
+		return{ (start_register << 2) | u32(sizeof...(values) << 18), u32(values)... };
 	}
 
 	static u32 make_jump(u32 offset)
