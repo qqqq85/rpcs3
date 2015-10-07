@@ -13,20 +13,26 @@ bool overlaps(const std::pair<size_t, size_t> &range1, const std::pair<size_t, s
 	return !(range1.second < range2.first || range2.second < range1.first);
 }
 
-std::vector<VertexBufferFormat> FormatVertexData(const RSXVertexData *m_vertex_data, size_t *vertex_data_size, size_t base_offset)
+std::vector<VertexBufferFormat> FormatVertexData(const rsx::data_array_format_info *array_format_info, size_t *vertex_data_size)
 {
 	std::vector<VertexBufferFormat> Result;
-	for (size_t i = 0; i < 32; ++i)
+	for (int index = 0; index < rsx::limits::vertex_count; ++index)
 	{
-		const RSXVertexData &vertexData = m_vertex_data[i];
-		if (!vertexData.IsEnabled()) continue;
+		const rsx::data_array_format_info &vertexData = array_format_info[index];
+		if (!vertexData.array) continue; // disabled or not a vertex array
 
-		size_t elementCount = ((vertexData.addr) ? vertex_data_size[i] : m_vertex_data[i].data.size()) / (vertexData.size * vertexData.GetTypeSize());
+		u32 offset = rsx::method_registers[NV4097_SET_VERTEX_DATA_ARRAY_OFFSET + index];
+		u32 address = rsx::get_address(offset & 0x7fffffff, offset >> 31);
+		if (!address) continue;
+
+		u32 base_offset = rsx::method_registers[NV4097_SET_VERTEX_DATA_BASE_OFFSET];
+
+		size_t elementCount = vertex_data_size[index];
 
 		// If there is a single element, stride is 0, use the size of element instead
 		size_t stride = vertexData.stride;
-		size_t elementSize = vertexData.GetTypeSize();
-		size_t start = vertexData.addr + base_offset;
+		size_t elementSize = rsx::get_vertex_type_size(vertexData.type);
+		size_t start = offset + base_offset;
 		size_t end = start + elementSize * vertexData.size + (elementCount - 1) * stride - 1;
 		std::pair<size_t, size_t> range = std::make_pair(start, end);
 		assert(start < end);
@@ -41,34 +47,38 @@ std::vector<VertexBufferFormat> FormatVertexData(const RSXVertexData *m_vertex_d
 				vbf.range.second = MAX2(vbf.range.second, range.second);
 				vbf.elementCount = MAX2(vbf.elementCount, elementCount);
 
-				vbf.attributeId.push_back(i);
+				vbf.attributeId.push_back(index);
 				isMerged = true;
 				break;
 			}
 		}
 		if (isMerged)
 			continue;
-		VertexBufferFormat newRange = { range, std::vector<size_t>{ i }, elementCount, stride };
+		VertexBufferFormat newRange = { range, std::vector<size_t>{ index }, elementCount, stride };
 		Result.emplace_back(newRange);
 	}
 	return Result;
 }
 
-void uploadVertexData(const VertexBufferFormat &vbf, const RSXVertexData *vertexData, size_t baseOffset, void* bufferMap)
+void uploadVertexData(const VertexBufferFormat &vbf, const rsx::data_array_format_info *array_format_info, const std::vector<u8> *array_data, size_t baseOffset, void* bufferMap)
 {
 	for (int vertex = 0; vertex < vbf.elementCount; vertex++)
 	{
 		for (size_t attributeId : vbf.attributeId)
 		{
-			if (!vertexData[attributeId].addr)
+			u32 offset = rsx::method_registers[NV4097_SET_VERTEX_DATA_ARRAY_OFFSET + attributeId];
+			u32 address = rsx::get_address(offset & 0x7fffffff, offset >> 31);
+			if (!address) continue;
+
+			if (!address)
 			{
-				memcpy(bufferMap, vertexData[attributeId].data.data(), vertexData[attributeId].data.size());
+				memcpy(bufferMap, array_data[attributeId].data(), array_data[attributeId].size());
 				continue;
 			}
-			size_t offset = (size_t)vertexData[attributeId].addr + baseOffset - vbf.range.first;
-			size_t tsize = vertexData[attributeId].GetTypeSize();
-			size_t size = vertexData[attributeId].size;
-			auto src = vm::get_ptr<const u8>(vertexData[attributeId].addr + (u32)baseOffset + (u32)vbf.stride * vertex);
+			size_t offset = (size_t)address + baseOffset - vbf.range.first;
+			size_t tsize = rsx::get_vertex_type_size(array_format_info[attributeId].type);
+			size_t size = array_format_info[attributeId].size;
+			auto src = vm::get_ptr<const u8>(address + (u32)baseOffset + (u32)vbf.stride * vertex);
 			char* dst = (char*)bufferMap + offset + vbf.stride * vertex;
 
 			switch (tsize)
