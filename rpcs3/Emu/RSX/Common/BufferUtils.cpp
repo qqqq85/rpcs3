@@ -54,7 +54,7 @@ std::vector<VertexBufferFormat> FormatVertexData(const rsx::data_array_format_in
 		}
 		if (isMerged)
 			continue;
-		VertexBufferFormat newRange = { range, std::vector<size_t>{ index }, elementCount, stride };
+		VertexBufferFormat newRange = { range, std::vector<size_t>{ (size_t)index }, elementCount, stride };
 		Result.emplace_back(newRange);
 	}
 	return Result;
@@ -66,8 +66,8 @@ void uploadVertexData(const VertexBufferFormat &vbf, const rsx::data_array_forma
 	{
 		for (size_t attributeId : vbf.attributeId)
 		{
-			u32 offset = rsx::method_registers[NV4097_SET_VERTEX_DATA_ARRAY_OFFSET + attributeId];
-			u32 address = rsx::get_address(offset & 0x7fffffff, offset >> 31);
+			u32 off = rsx::method_registers[NV4097_SET_VERTEX_DATA_ARRAY_OFFSET + attributeId];
+			u32 address = rsx::get_address(off & 0x7fffffff, off >> 31);
 			if (!address) continue;
 
 			if (!address)
