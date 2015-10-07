@@ -55,22 +55,30 @@ bool D3D12GSRender::LoadProgram()
 	if (m_PSO != nullptr)
 		return true;
 
-	if (!m_cur_fragment_prog)
+	RSXVertexProgram vertex_program;
+	u32 transform_program_start = rsx::method_registers[NV4097_SET_TRANSFORM_PROGRAM_START];
+	vertex_program.data.reserve((512 - transform_program_start) * 4);
+
+	for (int i = transform_program_start; i < 512; ++i)
 	{
-		LOG_WARNING(RSX, "LoadProgram: m_cur_shader_prog == NULL");
-		return false;
+		vertex_program.data.resize((i - transform_program_start) * 4 + 4);
+		memcpy(vertex_program.data.data() + (i - transform_program_start) * 4, transform_program + i * 4, 4 * sizeof(u32));
+
+		D3 d3;
+		d3.HEX = transform_program[i * 4 + 3];
+
+		if (d3.end)
+			break;
 	}
 
-	m_cur_fragment_prog->ctrl = m_shader_ctrl;
-
-	if (!m_cur_vertex_prog)
-	{
-		LOG_WARNING(RSX, "LoadProgram: m_cur_vertex_prog == NULL");
-		return false;
-	}
+	RSXFragmentProgram fragment_program;
+	u32 shader_program = rsx::method_registers[NV4097_SET_SHADER_PROGRAM];
+	fragment_program.offset = shader_program & ~0x3;
+	fragment_program.addr = rsx::get_address(fragment_program.offset, (shader_program & 0x3) - 1);
+	fragment_program.ctrl = rsx::method_registers[NV4097_SET_SHADER_CONTROL];
 
 	D3D12PipelineProperties prop = {};
-	switch (m_draw_mode - 1)
+	switch (draw_mode - 1)
 	{
 	case GL_POINTS:
 		prop.Topology = D3D12_PRIMITIVE_TOPOLOGY_TYPE_POINT;
@@ -108,87 +116,89 @@ bool D3D12GSRender::LoadProgram()
 	};
 	prop.Blend = CD3D12_BLEND_DESC;
 
-	if (m_set_blend)
+	if (rsx::method_registers[NV4097_SET_BLEND_ENABLE])
 	{
 		prop.Blend.RenderTarget[0].BlendEnable = true;
 
-		if (m_set_blend_mrt1)
-			prop.Blend.RenderTarget[1].BlendEnable = true;
-		if (m_set_blend_mrt2)
-			prop.Blend.RenderTarget[2].BlendEnable = true;
-		if (m_set_blend_mrt3)
-			prop.Blend.RenderTarget[3].BlendEnable = true;
+		/*		if (m_set_blend_mrt1)
+					prop.Blend.RenderTarget[1].BlendEnable = true;
+				if (m_set_blend_mrt2)
+					prop.Blend.RenderTarget[2].BlendEnable = true;
+				if (m_set_blend_mrt3)
+					prop.Blend.RenderTarget[3].BlendEnable = true;*/
+
+		prop.Blend.RenderTarget[0].BlendOp = getBlendOp(rsx::method_registers[NV4097_SET_BLEND_EQUATION]);
+		prop.Blend.RenderTarget[0].BlendOpAlpha = getBlendOp(rsx::method_registers[NV4097_SET_BLEND_EQUATION] >> 16);
+
+		/*		if (m_set_blend_mrt1)
+				{
+					prop.Blend.RenderTarget[1].BlendOp = getBlendOp(m_blend_equation_rgb);
+					prop.Blend.RenderTarget[1].BlendOpAlpha = getBlendOp(m_blend_equation_alpha);
+				}
+
+				if (m_set_blend_mrt2)
+				{
+					prop.Blend.RenderTarget[2].BlendOp = getBlendOp(m_blend_equation_rgb);
+					prop.Blend.RenderTarget[2].BlendOpAlpha = getBlendOp(m_blend_equation_alpha);
+				}
+
+				if (m_set_blend_mrt3)
+				{
+					prop.Blend.RenderTarget[3].BlendOp = getBlendOp(m_blend_equation_rgb);
+					prop.Blend.RenderTarget[3].BlendOpAlpha = getBlendOp(m_blend_equation_alpha);
+				}*/
+
+		u32 sfactor = rsx::method_registers[NV4097_SET_BLEND_FUNC_SFACTOR];
+		u32 dfactor = rsx::method_registers[NV4097_SET_BLEND_FUNC_DFACTOR];
+		u16 sfactor_rgb = sfactor;
+		u16 sfactor_a = sfactor >> 16;
+		u16 dfactor_rgb = dfactor;
+		u16 dfactor_a = dfactor >> 16;
+
+		prop.Blend.RenderTarget[0].SrcBlend = getBlendFactor(sfactor_rgb);
+		prop.Blend.RenderTarget[0].DestBlend = getBlendFactor(dfactor_rgb);
+		prop.Blend.RenderTarget[0].SrcBlendAlpha = getBlendFactorAlpha(sfactor_a);
+		prop.Blend.RenderTarget[0].DestBlendAlpha = getBlendFactorAlpha(dfactor_a);
+
+		/*
+			if (m_set_blend_mrt1)
+			{
+				prop.Blend.RenderTarget[1].SrcBlend = getBlendFactor(sfactor_rgb);
+				prop.Blend.RenderTarget[1].DestBlend = getBlendFactor(dfactor_rgb);
+				prop.Blend.RenderTarget[1].SrcBlendAlpha = getBlendFactorAlpha(sfactor_a);
+				prop.Blend.RenderTarget[1].DestBlendAlpha = getBlendFactorAlpha(dfactor_a);
+			}
+
+			if (m_set_blend_mrt2)
+			{
+				prop.Blend.RenderTarget[2].SrcBlend = getBlendFactor(sfactor_rgb);
+				prop.Blend.RenderTarget[2].DestBlend = getBlendFactor(dfactor_rgb);
+				prop.Blend.RenderTarget[2].SrcBlendAlpha = getBlendFactorAlpha(sfactor_a);
+				prop.Blend.RenderTarget[2].DestBlendAlpha = getBlendFactorAlpha(dfactor_a);
+			}
+
+			if (m_set_blend_mrt3)
+			{
+				prop.Blend.RenderTarget[3].SrcBlend = getBlendFactor(sfactor_rgb);
+				prop.Blend.RenderTarget[3].DestBlend = getBlendFactor(dfactor_rgb);
+				prop.Blend.RenderTarget[3].SrcBlendAlpha = getBlendFactorAlpha(sfactor_a);
+				prop.Blend.RenderTarget[3].DestBlendAlpha = getBlendFactorAlpha(dfactor_a);
+			}*/
+
+		if (rsx::method_registers[NV4097_SET_LOGIC_OP_ENABLE])
+		{
+			prop.Blend.RenderTarget[0].LogicOpEnable = true;
+			prop.Blend.RenderTarget[0].LogicOp = getLogicOp(rsx::method_registers[NV4097_SET_LOGIC_OP]);
+		}
+
+/*		if (m_set_blend_color)
+		{
+			glBlendColor(m_blend_color_r, m_blend_color_g, m_blend_color_b, m_blend_color_a);
+			checkForGlError("glBlendColor");
+		}*/
 	}
 
-	if (m_set_blend_equation)
-	{
-		prop.Blend.RenderTarget[0].BlendOp = getBlendOp(m_blend_equation_rgb);
-		prop.Blend.RenderTarget[0].BlendOpAlpha = getBlendOp(m_blend_equation_alpha);
-
-		if (m_set_blend_mrt1)
-		{
-			prop.Blend.RenderTarget[1].BlendOp = getBlendOp(m_blend_equation_rgb);
-			prop.Blend.RenderTarget[1].BlendOpAlpha = getBlendOp(m_blend_equation_alpha);
-		}
-
-		if (m_set_blend_mrt2)
-		{
-			prop.Blend.RenderTarget[2].BlendOp = getBlendOp(m_blend_equation_rgb);
-			prop.Blend.RenderTarget[2].BlendOpAlpha = getBlendOp(m_blend_equation_alpha);
-		}
-
-		if (m_set_blend_mrt3)
-		{
-			prop.Blend.RenderTarget[3].BlendOp = getBlendOp(m_blend_equation_rgb);
-			prop.Blend.RenderTarget[3].BlendOpAlpha = getBlendOp(m_blend_equation_alpha);
-		}
-	}
-
-	if (m_set_blend_sfactor && m_set_blend_dfactor)
-	{
-		prop.Blend.RenderTarget[0].SrcBlend = getBlendFactor(m_blend_sfactor_rgb);
-		prop.Blend.RenderTarget[0].DestBlend = getBlendFactor(m_blend_dfactor_rgb);
-		prop.Blend.RenderTarget[0].SrcBlendAlpha = getBlendFactorAlpha(m_blend_sfactor_alpha);
-		prop.Blend.RenderTarget[0].DestBlendAlpha = getBlendFactorAlpha(m_blend_dfactor_alpha);
-
-		if (m_set_blend_mrt1)
-		{
-			prop.Blend.RenderTarget[1].SrcBlend = getBlendFactor(m_blend_sfactor_rgb);
-			prop.Blend.RenderTarget[1].DestBlend = getBlendFactor(m_blend_dfactor_rgb);
-			prop.Blend.RenderTarget[1].SrcBlendAlpha = getBlendFactorAlpha(m_blend_sfactor_alpha);
-			prop.Blend.RenderTarget[1].DestBlendAlpha = getBlendFactorAlpha(m_blend_dfactor_alpha);
-		}
-
-		if (m_set_blend_mrt2)
-		{
-			prop.Blend.RenderTarget[2].SrcBlend = getBlendFactor(m_blend_sfactor_rgb);
-			prop.Blend.RenderTarget[2].DestBlend = getBlendFactor(m_blend_dfactor_rgb);
-			prop.Blend.RenderTarget[2].SrcBlendAlpha = getBlendFactorAlpha(m_blend_sfactor_alpha);
-			prop.Blend.RenderTarget[2].DestBlendAlpha = getBlendFactorAlpha(m_blend_dfactor_alpha);
-		}
-
-		if (m_set_blend_mrt3)
-		{
-			prop.Blend.RenderTarget[3].SrcBlend = getBlendFactor(m_blend_sfactor_rgb);
-			prop.Blend.RenderTarget[3].DestBlend = getBlendFactor(m_blend_dfactor_rgb);
-			prop.Blend.RenderTarget[3].SrcBlendAlpha = getBlendFactorAlpha(m_blend_sfactor_alpha);
-			prop.Blend.RenderTarget[3].DestBlendAlpha = getBlendFactorAlpha(m_blend_dfactor_alpha);
-		}
-	}
-
-	if (m_set_logic_op)
-	{
-		prop.Blend.RenderTarget[0].LogicOpEnable = true;
-		prop.Blend.RenderTarget[0].LogicOp = getLogicOp(m_logic_op);
-	}
-
-	if (m_set_blend_color)
-	{
-		// glBlendColor(m_blend_color_r, m_blend_color_g, m_blend_color_b, m_blend_color_a);
-		// checkForGlError("glBlendColor");
-	}
-
-	switch (m_surface_depth_format)
+	switch (m_surface.depth_format)
 	{
 	case 0:
 		break;
@@ -199,11 +209,11 @@ bool D3D12GSRender::LoadProgram()
 		prop.DepthStencilFormat = DXGI_FORMAT_D24_UNORM_S8_UINT;
 		break;
 	default:
-		LOG_ERROR(RSX, "Bad depth format! (%d)", m_surface_depth_format);
+		LOG_ERROR(RSX, "Bad depth format! (%d)", m_surface.depth_format);
 		assert(0);
 	}
 
-	switch (m_surface_color_format)
+	switch (m_surface.color_format)
 	{
 	case CELL_GCM_SURFACE_A8R8G8B8:
 		prop.RenderTargetsFormat = DXGI_FORMAT_R8G8B8A8_UNORM;
@@ -213,7 +223,7 @@ bool D3D12GSRender::LoadProgram()
 		break;
 	}
 
-	switch (m_surface_color_target)
+	switch (rsx::method_registers[NV4097_SET_SURFACE_COLOR_TARGET])
 	{
 	case CELL_GCM_SURFACE_TARGET_0:
 	case CELL_GCM_SURFACE_TARGET_1:
@@ -229,33 +239,33 @@ bool D3D12GSRender::LoadProgram()
 		prop.numMRT = 4;
 		break;
 	default:
-		LOG_ERROR(RSX, "Bad surface color target: %d", m_surface_color_target);
+		LOG_ERROR(RSX, "Bad surface color target: %d", rsx::method_registers[NV4097_SET_SURFACE_COLOR_TARGET]);
 	}
 
-	prop.DepthStencil.DepthEnable = m_set_depth_test;
-	prop.DepthStencil.DepthWriteMask = m_depth_mask ? D3D12_DEPTH_WRITE_MASK_ALL : D3D12_DEPTH_WRITE_MASK_ZERO;
-	prop.DepthStencil.DepthFunc = getCompareFunc(m_depth_func);
-	prop.DepthStencil.StencilEnable = m_set_stencil_test;
-	prop.DepthStencil.StencilReadMask = m_stencil_func_mask;
-	prop.DepthStencil.StencilWriteMask = m_stencil_mask;
-	prop.DepthStencil.FrontFace.StencilPassOp = getStencilOp(m_stencil_zpass);
-	prop.DepthStencil.FrontFace.StencilDepthFailOp = getStencilOp(m_stencil_zfail);
-	prop.DepthStencil.FrontFace.StencilFailOp = getStencilOp(m_stencil_fail);
-	prop.DepthStencil.FrontFace.StencilFunc = getCompareFunc(m_stencil_func);
+	prop.DepthStencil.DepthEnable = rsx::method_registers[NV4097_SET_DEPTH_TEST_ENABLE];
+	prop.DepthStencil.DepthWriteMask = rsx::method_registers[NV4097_SET_DEPTH_MASK] ? D3D12_DEPTH_WRITE_MASK_ALL : D3D12_DEPTH_WRITE_MASK_ZERO;
+	prop.DepthStencil.DepthFunc = getCompareFunc(rsx::method_registers[NV4097_SET_DEPTH_FUNC]);
+	prop.DepthStencil.StencilEnable = rsx::method_registers[NV4097_SET_STENCIL_TEST_ENABLE];
+	prop.DepthStencil.StencilReadMask = rsx::method_registers[NV4097_SET_STENCIL_MASK];
+	prop.DepthStencil.StencilWriteMask = rsx::method_registers[NV4097_SET_STENCIL_FUNC_MASK];
+	prop.DepthStencil.FrontFace.StencilPassOp = getStencilOp(rsx::method_registers[NV4097_SET_STENCIL_OP_ZPASS]);
+	prop.DepthStencil.FrontFace.StencilDepthFailOp = getStencilOp(rsx::method_registers[NV4097_SET_STENCIL_OP_ZFAIL]);
+	prop.DepthStencil.FrontFace.StencilFailOp = getStencilOp(rsx::method_registers[NV4097_SET_STENCIL_OP_FAIL]);
+	prop.DepthStencil.FrontFace.StencilFunc = getCompareFunc(rsx::method_registers[NV4097_SET_STENCIL_FUNC]);
 
-	if (m_set_two_sided_stencil_test_enable)
+	if (rsx::method_registers[NV4097_SET_TWO_SIDED_STENCIL_TEST_ENABLE])
 	{
-		prop.DepthStencil.BackFace.StencilFailOp = getStencilOp(m_back_stencil_fail);
-		prop.DepthStencil.BackFace.StencilFunc = getCompareFunc(m_back_stencil_func);
-		prop.DepthStencil.BackFace.StencilPassOp = getStencilOp(m_back_stencil_zpass);
-		prop.DepthStencil.BackFace.StencilDepthFailOp = getStencilOp(m_back_stencil_zfail);
+		prop.DepthStencil.BackFace.StencilFailOp = getStencilOp(rsx::method_registers[NV4097_SET_BACK_STENCIL_OP_FAIL]);
+		prop.DepthStencil.BackFace.StencilFunc = getCompareFunc(rsx::method_registers[NV4097_SET_BACK_STENCIL_FUNC]);
+		prop.DepthStencil.BackFace.StencilPassOp = getStencilOp(rsx::method_registers[NV4097_SET_BACK_STENCIL_OP_ZPASS]);
+		prop.DepthStencil.BackFace.StencilDepthFailOp = getStencilOp(rsx::method_registers[NV4097_SET_BACK_STENCIL_OP_ZFAIL]);
 	}
 	else
 	{
-		prop.DepthStencil.BackFace.StencilPassOp = getStencilOp(m_stencil_zpass);
-		prop.DepthStencil.BackFace.StencilDepthFailOp = getStencilOp(m_stencil_zfail);
-		prop.DepthStencil.BackFace.StencilFailOp = getStencilOp(m_stencil_fail);
-		prop.DepthStencil.BackFace.StencilFunc = getCompareFunc(m_stencil_func);
+		prop.DepthStencil.BackFace.StencilPassOp = getStencilOp(rsx::method_registers[NV4097_SET_STENCIL_OP_ZPASS]);
+		prop.DepthStencil.BackFace.StencilDepthFailOp = getStencilOp(rsx::method_registers[NV4097_SET_STENCIL_OP_ZFAIL]);
+		prop.DepthStencil.BackFace.StencilFailOp = getStencilOp(rsx::method_registers[NV4097_SET_STENCIL_OP_FAIL]);
+		prop.DepthStencil.BackFace.StencilFunc = getCompareFunc(rsx::method_registers[NV4097_SET_STENCIL_FUNC]);
 	}
 
 	// Sensible default value
@@ -274,7 +284,7 @@ bool D3D12GSRender::LoadProgram()
 		D3D12_CONSERVATIVE_RASTERIZATION_MODE_OFF,
 	};
 	prop.Rasterization = CD3D12_RASTERIZER_DESC;
-	switch (m_set_cull_face)
+	switch (rsx::method_registers[NV4097_SET_CULL_FACE])
 	{
 	case CELL_GCM_FRONT:
 		prop.Rasterization.CullMode = D3D12_CULL_MODE_FRONT;
@@ -287,7 +297,7 @@ bool D3D12GSRender::LoadProgram()
 		break;
 	}
 
-	switch (m_front_face)
+	switch (rsx::method_registers[NV4097_SET_FRONT_FACE])
 	{
 	case CELL_GCM_CW:
 		prop.Rasterization.FrontCounterClockwise = FALSE;
@@ -296,23 +306,21 @@ bool D3D12GSRender::LoadProgram()
 		prop.Rasterization.FrontCounterClockwise = TRUE;
 		break;
 	}
-
-	if (m_set_color_mask)
+	u32 color_mask = rsx::method_registers[NV4097_SET_COLOR_MASK];
+	if (color_mask)
 	{
 		UINT8 mask = 0;
-		mask |= m_color_mask_r ? D3D12_COLOR_WRITE_ENABLE_RED : 0;
-		mask |= m_color_mask_g ? D3D12_COLOR_WRITE_ENABLE_GREEN : 0;
-		mask |= m_color_mask_b ? D3D12_COLOR_WRITE_ENABLE_BLUE : 0;
-		mask |= m_color_mask_a ? D3D12_COLOR_WRITE_ENABLE_ALPHA : 0;
+		mask |= (color_mask & 0xff) ? D3D12_COLOR_WRITE_ENABLE_RED : 0;
+		mask |= ((color_mask >> 8) & 0xff) ? D3D12_COLOR_WRITE_ENABLE_GREEN : 0;
+		mask |= ((color_mask >> 16) & 0xff) ? D3D12_COLOR_WRITE_ENABLE_BLUE : 0;
+		mask |= ((color_mask >> 24) & 0xff) ? D3D12_COLOR_WRITE_ENABLE_ALPHA : 0;
 		for (unsigned i = 0; i < prop.numMRT; i++)
 			prop.Blend.RenderTarget[i].RenderTargetWriteMask = mask;
 	}
 
 	prop.IASet = m_IASet;
 
-	m_PSO = m_cachePSO.getGraphicPipelineState(m_cur_vertex_prog, m_cur_fragment_prog, prop, std::make_pair(m_device.Get(), m_rootSignatures));
+	m_PSO = m_cachePSO.getGraphicPipelineState(&vertex_program, &fragment_program, prop, std::make_pair(m_device.Get(), m_rootSignatures));
 	return m_PSO != nullptr;
 }
-
-
 #endif
