@@ -449,12 +449,12 @@ void D3D12GSRender::end()
 			if (info.size == 0)
 				continue;
 
-			m_vertexBufferSize[i] = (draw_array_first + draw_array_count) * rsx::get_vertex_type_size(info.type) * info.size;
+			m_vertexBufferSize[i] = (vertex_draw_count) * rsx::get_vertex_type_size(info.type) * info.size;
 		}
 	}
 
 
-	if (draw_array_count)
+	if (vertex_draw_count)
 	{
 		const std::vector<D3D12_VERTEX_BUFFER_VIEW> &vertexBufferViews = UploadVertexBuffers(!vertex_index_array.empty());
 		const D3D12_INDEX_BUFFER_VIEW &indexBufferView = uploadIndexBuffers(!vertex_index_array.empty());
