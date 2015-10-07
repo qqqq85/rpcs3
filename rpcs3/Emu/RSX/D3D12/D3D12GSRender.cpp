@@ -1060,7 +1060,7 @@ void D3D12GSRender::semaphorePGRAPHBackendRelease(u32 offset, u32 value)
 		getCurrentResourceStorage().m_commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(depthConverted.Get(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_COPY_SOURCE));
 		getCurrentResourceStorage().m_commandList->CopyTextureRegion(&CD3DX12_TEXTURE_COPY_LOCATION(writeDest.Get(), { 0, { DXGI_FORMAT_R8_UNORM, clip_width, clip_height, 1, (UINT)depthRowPitch } }), 0, 0, 0,
 			&CD3DX12_TEXTURE_COPY_LOCATION(depthConverted.Get(), 0), nullptr);
-		invalidateTexture(rsx::get_address(offset_z, dma_z - 0xfeed0000));	}
+		invalidateAddress(rsx::get_address(offset_z, dma_z - 0xfeed0000));	}
 
 	ID3D12Resource *rtt0, *rtt1, *rtt2, *rtt3;
 	if (Ini.GSDumpColorBuffers.GetValue())
@@ -1097,10 +1097,10 @@ void D3D12GSRender::semaphorePGRAPHBackendRelease(u32 offset, u32 value)
 			break;
 		}
 
-		if (dma_color_a) invalidateTexture(rsx::get_address(offset_color_a, dma_color_a - 0xfeed0000));
-		if (dma_color_b) invalidateTexture(rsx::get_address(offset_color_b, dma_color_b - 0xfeed0000));
-		if (dma_color_c) invalidateTexture(rsx::get_address(offset_color_c, dma_color_c - 0xfeed0000));
-		if (dma_color_d) invalidateTexture(rsx::get_address(offset_color_d, dma_color_d - 0xfeed0000));
+		if (dma_color_a) invalidateAddress(rsx::get_address(offset_color_a, dma_color_a - 0xfeed0000));
+		if (dma_color_b) invalidateAddress(rsx::get_address(offset_color_b, dma_color_b - 0xfeed0000));
+		if (dma_color_c) invalidateAddress(rsx::get_address(offset_color_c, dma_color_c - 0xfeed0000));
+		if (dma_color_d) invalidateAddress(rsx::get_address(offset_color_d, dma_color_d - 0xfeed0000));
 		}
 	if (needTransfer)
 	{
