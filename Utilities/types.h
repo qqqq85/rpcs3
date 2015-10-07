@@ -646,12 +646,19 @@ struct coord_base
 		struct { T width, height; };
 	};
 
-	constexpr coord_base() : x{}, y{}, position{}, width{}, height{}, size{}
+	constexpr coord_base() : position{}, size{}
+#ifdef _MSC_VER
+		//compiler error
+		, x{}, y{}, width{}, height{}
+#endif
 	{
 	}
 
 	constexpr coord_base(const position_base<T>& position, const size2_base<T>& size)
-		: x{ position.x }, y{ position.y }, position{ position }, width{ size.width }, height{ size.height }, size{ size }
+		: position{ position }, size{ size }
+#ifdef _MSC_VER
+		, x{ position.x }, y{ position.y }, width{ size.width }, height{ size.height }
+#endif
 	{
 	}
 
