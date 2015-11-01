@@ -230,8 +230,7 @@ struct resource_storage
 	 * This means newer resources shouldn't allocate memory crossing this position
 	 * until the frame rendering is over.
 	 */
-	size_t constants_heap_get_pos;
-	size_t vertex_index_heap_get_pos;
+	size_t constants_vertex_index_heap_get_pos;
 	size_t texture_upload_heap_get_pos;
 	size_t readback_heap_get_pos;
 	size_t uav_heap_get_pos;

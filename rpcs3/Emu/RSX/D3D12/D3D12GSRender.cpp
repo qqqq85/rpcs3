@@ -203,8 +203,7 @@ D3D12GSRender::D3D12GSRender()
 
 	m_rtts.init(m_device.Get());
 
-	m_constants_data.init(m_device.Get(), 1024 * 1024 * 64, D3D12_HEAP_TYPE_UPLOAD, D3D12_RESOURCE_STATE_GENERIC_READ);
-	m_vertex_index_data.init(m_device.Get(), 1024 * 1024 * 384, D3D12_HEAP_TYPE_UPLOAD, D3D12_RESOURCE_STATE_GENERIC_READ);
+	m_buffer_data.init(m_device.Get(), 1024 * 1024 * 384, D3D12_HEAP_TYPE_UPLOAD, D3D12_RESOURCE_STATE_GENERIC_READ);
 	m_texture_upload_data.init(m_device.Get(), 1024 * 1024 * 512, D3D12_HEAP_TYPE_UPLOAD, D3D12_RESOURCE_STATE_GENERIC_READ);
 
 	if (rpcs3::config.rsx.d3d12.overlay.value())
@@ -218,8 +217,7 @@ D3D12GSRender::~D3D12GSRender()
 	m_texture_cache.unprotect_all();
 
 	gfxHandler = [this](u32) { return false; };
-	m_constants_data.release();
-	m_vertex_index_data.release();
+	m_buffer_data.release();
 	m_texture_upload_data.release();
 	m_uav_heap.m_heap->Release();
 	m_readback_resources.m_heap->Release();
@@ -564,8 +562,7 @@ void D3D12GSRender::flip(int buffer)
 	// Get the put pos - 1. This way after cleaning we can set the get ptr to
 	// this value, allowing heap to proceed even if we cleant before allocating
 	// a new value (that's the reason of the -1)
-	storage.constants_heap_get_pos = m_constants_data.get_current_put_pos_minus_one();
-	storage.vertex_index_heap_get_pos = m_vertex_index_data.get_current_put_pos_minus_one();
+	storage.constants_vertex_index_heap_get_pos = m_buffer_data.get_current_put_pos_minus_one();
 	storage.texture_upload_heap_get_pos = m_texture_upload_data.get_current_put_pos_minus_one();
 	storage.readback_heap_get_pos = m_readback_resources.get_current_put_pos_minus_one();
 	storage.uav_heap_get_pos = m_uav_heap.get_current_put_pos_minus_one();
@@ -576,8 +573,7 @@ void D3D12GSRender::flip(int buffer)
 	new_storage.wait_and_clean();
 	if (new_storage.in_use)
 	{
-		m_constants_data.m_get_pos = new_storage.constants_heap_get_pos;
-		m_vertex_index_data.m_get_pos = new_storage.vertex_index_heap_get_pos;
+		m_buffer_data.m_get_pos = new_storage.constants_vertex_index_heap_get_pos;
 		m_texture_upload_data.m_get_pos = new_storage.texture_upload_heap_get_pos;
 		m_readback_resources.m_get_pos = new_storage.readback_heap_get_pos;
 		m_uav_heap.m_get_pos = new_storage.uav_heap_get_pos;
