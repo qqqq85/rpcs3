@@ -1087,10 +1087,25 @@ namespace
 		return result;
 	}
 
+	std::string get_remap_channel(u8 op) noexcept
+	{
+		switch (op)
+		{
+		case 0: return "W";
+		case 1: return "X";
+		case 2: return "Y";
+		case 3: return "Z";
+		}
+		return "Error";
+	}
+
 	std::string texture_control1(size_t index, u32 arg) noexcept
 	{
 		return "Texture " + std::to_string(index) +
-			" remap = " + std::to_string(arg);
+			" A = " + get_remap_channel(arg & 0x3) +
+			" R = " + get_remap_channel((arg >> 2) & 0x3) +
+			" G = " + get_remap_channel((arg >> 4) & 0x3) +
+			" B = " + get_remap_channel((arg >> 6) & 0x3);
 	}
 
 	std::string texture_control3(size_t index, u32 arg) noexcept
