@@ -5,6 +5,7 @@
 #include "GLFragmentProgram.h"
 
 #include "GLCommonDecompiler.h"
+#include "../GCM.h"
 
 std::string GLFragmentDecompilerThread::getFloatTypeName(size_t elementCount)
 {
