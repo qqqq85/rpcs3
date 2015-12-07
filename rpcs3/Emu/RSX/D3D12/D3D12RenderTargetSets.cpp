@@ -375,6 +375,7 @@ namespace
 		size_t row_pitch;
 		switch (color_surface_format)
 		{
+		case CELL_GCM_SURFACE_R5G6B5: // emulated by RGBA8
 		case CELL_GCM_SURFACE_A8R8G8B8:
 			row_pitch = align(clip_w * 4, 256);
 			break;
