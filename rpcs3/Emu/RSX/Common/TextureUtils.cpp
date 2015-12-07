@@ -69,7 +69,7 @@ writeTexelsSwizzled(const char *src, char *dst, size_t widthInBlock, size_t heig
 
 		rsx::convert_linear_swizzle<u32>(castedSrc, temp_swizzled.get(), currentWidth, currentHeight, true);
 		for (unsigned row = 0; row < currentHeight; row++)
-			memcpy((char*)dst + offsetInDst + row * rowPitch, (char*)temp_swizzled.get() + offsetInSrc + row * widthInBlock * blockSize, currentWidth * blockSize);
+			memcpy((char*)dst + offsetInDst + row * rowPitch, (char*)temp_swizzled.get() + row * widthInBlock * blockSize, currentWidth * blockSize);
 
 		offsetInDst += currentHeight * rowPitch;
 		offsetInSrc += currentHeight * widthInBlock * blockSize;
