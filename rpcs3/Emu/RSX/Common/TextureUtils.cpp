@@ -49,6 +49,7 @@ writeTexelsSwizzled(const char *src, char *dst, size_t widthInBlock, size_t heig
 	std::vector<MipmapLevelInfo> Result;
 	size_t offsetInDst = 0, offsetInSrc = 0;
 	size_t currentHeight = heightInBlock, currentWidth = widthInBlock;
+	std::unique_ptr<u32[]> temp_swizzled(new u32[currentHeight * currentWidth]);
 	for (unsigned mipLevel = 0; mipLevel < mipmapCount; mipLevel++)
 	{
 		size_t rowPitch = align(currentWidth * blockSize, 256);
@@ -65,7 +66,7 @@ writeTexelsSwizzled(const char *src, char *dst, size_t widthInBlock, size_t heig
 		castedSrc = (u32*)src + offsetInSrc;
 		castedDst = (u32*)dst + offsetInDst;
 
-		std::unique_ptr<u32[]> temp_swizzled(new u32[currentHeight * currentWidth]);
+
 		rsx::convert_linear_swizzle<u32>(castedSrc, temp_swizzled.get(), currentWidth, currentHeight, true);
 		for (unsigned row = 0; row < currentHeight; row++)
 			memcpy((char*)dst + offsetInDst + row * rowPitch, (char*)temp_swizzled.get() + offsetInSrc + row * widthInBlock * blockSize, currentWidth * blockSize);
