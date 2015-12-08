@@ -944,7 +944,7 @@ namespace rsx
 		{
 			draw_state.color_buffer[i].width = clip_w;
 			draw_state.color_buffer[i].height = clip_h;
-			draw_state.color_buffer[i].data.resize(pitch * clip_h);
+			draw_state.color_buffer[i].data.resize(pitch * clip_h * 2);
 			copy_render_targets_to_memory(draw_state.color_buffer[i].data.data(), i);
 		}
 		if (get_address(method_registers[NV4097_SET_SURFACE_ZETA_OFFSET], method_registers[NV4097_SET_CONTEXT_DMA_ZETA]))
