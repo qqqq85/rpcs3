@@ -7,6 +7,7 @@
 
 class D3D12FragmentDecompiler : public FragmentProgramDecompiler
 {
+	const std::vector<texture_dimension> m_texture_dimensions;
 protected:
 	virtual std::string getFloatTypeName(size_t elementCount) override;
 	virtual std::string getFunction(enum class FUNCTION) override;
@@ -20,5 +21,5 @@ protected:
 	virtual void insertMainStart(std::stringstream &OS) override;
 	virtual void insertMainEnd(std::stringstream &OS) override;
 public:
-	D3D12FragmentDecompiler(u32 addr, u32& size, u32 ctrl);
+	D3D12FragmentDecompiler(u32 addr, u32& size, u32 ctrl, const std::vector<texture_dimension> &texture_dimensions);
 };

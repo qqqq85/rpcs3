@@ -7,8 +7,8 @@
 #include "Emu/Memory/Memory.h"
 #include "Emu/System.h"
 
-D3D12FragmentDecompiler::D3D12FragmentDecompiler(u32 addr, u32& size, u32 ctrl) :
-	FragmentProgramDecompiler(addr, size, ctrl)
+D3D12FragmentDecompiler::D3D12FragmentDecompiler(u32 addr, u32& size, u32 ctrl, const std::vector<texture_dimension> &texture_dimensions) :
+	FragmentProgramDecompiler(addr, size, ctrl), m_texture_dimensions(texture_dimensions)
 {
 
 }
@@ -124,7 +124,10 @@ void D3D12FragmentDecompiler::insertConstants(std::stringstream & OS)
 		for (ParamItem PI : PT.items)
 		{
 			size_t textureIndex = atoi(PI.name.data() + 3);
-			OS << "Texture2D " << PI.name << " : register(t" << textureIndex << ");" << std::endl;
+			if (m_texture_dimensions[textureIndex] == texture_dimension::texture_dimension_cubemap)
+				OS << "TextureCube " << PI.name << " : register(t" << textureIndex << ");" << std::endl;
+			else
+				OS << "Texture2D " << PI.name << " : register(t" << textureIndex << ");" << std::endl;
 			OS << "sampler " << PI.name << "sampler : register(s" << textureIndex << ");" << std::endl;
 		}
 	}

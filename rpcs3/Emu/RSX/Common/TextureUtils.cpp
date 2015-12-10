@@ -249,6 +249,7 @@ std::vector<MipmapLevelInfo> upload_placed_texture(const rsx::texture &texture, 
 {
 	size_t w = texture.width(), h = texture.height();
 	size_t depth = texture.depth();
+	if (texture.cubemap()) depth *= 6;
 
 	int format = texture.format() & ~(CELL_GCM_TEXTURE_LN | CELL_GCM_TEXTURE_UN);
 
